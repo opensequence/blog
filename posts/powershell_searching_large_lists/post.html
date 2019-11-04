@@ -1,0 +1,59 @@
+<p>(reading time- number of words divided by 250. Eg. 6 min read)</p>
+<p>(overview)</p>
+<p>I like lists. Specifically, generic lists{<a
+        href="https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1?view=netcore-3.0">https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1?view=netcore-3.0</a>}
+    in powershell. They are so fast and versatile. And when you combine them with a
+    custom class, things really get interesting!</p>
+<p> </p>
+<p><strong>The problem</strong></p>
+<p>I had a need to enumerate and compare various properties of two sources. I
+    enumerated these two sources into two separate lists. Each list contained items
+    with a unique key and some individual properties. I needed to merge them
+    together and compare properties on each.</p>
+<p>Now in order to merge one list into another, you have to first see if that
+    item already exists in the target list, then if it exists retrieve that item
+    from the list in order to update it.</p>
+<p>Let’s look at some code;</p>
+<p>{Insert code using where method}</p>
+<p>This is fine. Except when your lists get **big. **If we do a measure-command,
+    we see a problem; on a list of 3000 items it could take well over an hour to
+    iterate through!</p>
+<p>{insert measure-command snippet}</p>
+<p><strong>Optimisation</strong></p>
+<p>I won’t touch on parallel tasks in this post (however I do use them) let’s
+    just look at ways we can optimise our code.</p>
+<p><em>Contains</em></p>
+<p>Contains is fast. It can search a very large list quickly and simply returns
+    a boolean if it finds the item. We can use this to initially test whether we
+    even need to merge this item into an existing object, or simply create a new
+    one and append to the list.</p>
+<p>Ok. So this helps whenever there is a new item to add, but its still
+    expensive to merge an object. In my case 90% of items required merging. More
+    work was required.</p>
+<p>There are a more than a few ways to find an item in your list.</p>
+<p>Foreach (or foreach-object)</p>
+<p>Where method (ienumerable)</p>
+<p>Find method (list)</p>
+<p>I previously preferred using the where method, however after much testing I
+    have found that specifically for lists, the Find method is much faster;</p>
+<p>Let’s look at some code:</p>
+<p>{measure-command snippets comparing Find &amp; where}</p>
+<p>This works great! but it’s still too slow! When dealing with lists with
+    50000+ items this still takes forever...</p>
+<p><strong>My solution</strong></p>
+<p><strong><em>Find-ListItem</em></strong> was what I came up with. Essentially, I combined
+    the benefits of <strong>contains</strong> &amp; <strong>find</strong> to try and search the
+    smallest number of items in order to locate the item I need.</p>
+<p>Design overview:</p>
+<p>{small diagram of list broken into 4 pieces}</p>
+<p>So it checks with contains the first quarter of the list, then the last,
+    working its way towards the middle. This means when we find what section it is in;
+    we only have to perform the find on ¼ of the list. Drastically decreasing the
+    time. Lets see some speed tests:</p>
+<p>{measure-command comparisons}</p>
+<p>Much better!</p>
+<p>I have plans to improve this code to allow the number of sections to be
+    adjustable, and potentially slightly alter the search order to even better
+    optimise it.</p>
+<p>Feel free to take a look and use the function as you see fit.</p>
+<p><a href="https://github.com/opensequence/Find-ListItem">https://github.com/opensequence/Find-ListItem</a></p>
