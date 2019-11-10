@@ -13,9 +13,11 @@ $null = $List2.AddRange($List)
 # Execute
 Measure-Command {
     foreach ($Item in $List) {
-        $result = $List2.where( { $_ -eq $Item })
-        if ($result) {
-            #do something
+        if ($List.Contains($Item)) {
+            $result = $List2.where( { $_ -eq $Item })
+            if ($result) {
+                #do something
+            }
         }
     }
 }
