@@ -1,11 +1,9 @@
-reading time- number of words divided by 250. Eg. 6 min read)
+Reading Time: 3.5 minutes
 
 
 I like lists. Specifically, [generic lists](https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1?view=netcore-3.0)
 in .Net. They are so fast and versatile. And when you combine them with a
 [custom class](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_classes?view=powershell-5.1), things really get interesting!
-
-&nbsp;
 
 **The problem**
 
@@ -31,6 +29,16 @@ This is fine. Except when your lists get **big**. If we do a measure-command,
 we see a problem; on a list of 45000 items it takes over 173ms **per operation**. it could take well over 2 hours to iterate through the code snippet above.
 
 ``` powershell
+#Create two test Lists
+$List = [System.Collections.Generic.List[string]]::New()
+$List2 = [System.Collections.Generic.List[string]]::New()
+$numberfitems = 45000
+while ($count -le $numberfitems) {
+    $null = $List.Add((New-Guid).Guid)
+    $count++
+}
+$null = $List2.AddRange($List)
+#Find item at position 500
 Measure-Command {$result = $List2.where( { $_ -eq $List[500] })}
 
 Milliseconds      : 178
@@ -66,12 +74,12 @@ one and append to the list.
 ```
 
 Ok. So this helps whenever there is a new item to add, but its still
-expensive to merge an object. In my case 90% of items required merging. More
+expensive to retrieve an object. In my case 90% of items required merging/retrieving. More
 work was required.
 
-There are a more than a few ways to find an item in your list.
+There are a more than a few ways to find an item in your list;
 
-* [Foreach](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_foreach?view=powershell-6) (or foreach-object)
+* [Foreach](https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_foreach?view=powershell-6)
 
 * [Where method](https://docs.microsoft.com/en-us/dotnet/api/system.linq.enumerable.where?view=netframework-4.8) (ienumerable)
 
@@ -100,19 +108,20 @@ This works great! but it’s still too slow! When dealing with lists with
 
 **My solution**
 
-**_Find-ListItem_** was what I came up with. I combined
+[**_Find-ListItem_**](https://github.com/opensequence/Find-ListItem) was what I came up with. I combined
 the benefits of **contains** &amp; **where** to try and search the
 smallest number of items in order to locate the item I need.
 
-Design overview:
+**Design overview**
 
-Simply put I break the list into 4 sections, do a contains on each section and only perform a where on the subset where the contains returns true.
+Simply put, I break the list into 4 sections, do a contains on each section and only perform a where on the subset where the contains returns true.
 
 I've optimised this search pattern by checking the first quarter of the list, then the last,
 working its way towards the middle. This drastically decreases the
 time. Lets see some speed tests:
 
 ``` powershell
+#Traditional where method
 Measure-Command { $WhereItem = $List.where( { $_ -eq "$($List[45000])" }) }
 
 
@@ -124,9 +133,8 @@ TotalMinutes      : 0.00891878
 TotalSeconds      : 0.5351268
 TotalMilliseconds : 535.1268
 
-Measure-Command { $FastItem = Find-ListItem -Verbose -List $List -SearchString "$($List[45000])" }
-VERBOSE: START: Locating b1b11d1c-7998-4dbb-85ca-a4e764adc033 in List
-VERBOSE: FINISH: Locating b1b11d1c-7998-4dbb-85ca-a4e764adc033 in List.
+#using Find-ListItem
+Measure-Command { $FastItem = Find-ListItem -List $List -SearchString "$($List[45000])" }
 
 Milliseconds      : 420
 Ticks             : 4200509
@@ -139,13 +147,13 @@ TotalMilliseconds : 420.0509
 
 ```
 
-Much better!
+That's a 24% improvement in speed! Depending on the position of the item you are searching for this can get even faster!
 
 I have plans to improve this code to allow the number of sections to be
 adjustable, and potentially slightly alter the search order to even better
 optimise it.
 
-_I had previously used Find in this code, but after even more testing I found the newer where method actually traverses the list at a faster rate than Find, so when we breakdown the list into smaller pieces we actually on average gain speed compared to Find._
+_I had previously used Find in this code, but after even more testing I found the newer where method actually traverses the list at a faster rate than Find, so when we breakdown the list into smaller pieces we gain speed (on average) compared to Find._
 
 Feel free to take a look and use the function as you see fit.
 
